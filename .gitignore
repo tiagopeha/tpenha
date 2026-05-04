@@ -1,0 +1,36 @@
+# Segurança — NUNCA commitar
+.env
+
+# Áudios temporários
+*.wav
+*.mp3
+*.ogg
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+dist/
+build/
+
+# Virtualenvs
+.venv/
+venv/
+env/
+
+# Editors
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# macOS
+.DS_Store
+
+# Dados do usuário (não vão pro repo)
+# ~/tdah-ia/ é fora do repo, mas proteção extra caso o repo seja init lá dentro
+[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]/
+_falhas/
