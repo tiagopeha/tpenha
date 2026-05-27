@@ -6,6 +6,9 @@ load_dotenv()
 
 PROMPT_DIR = Path(__file__).parent / "prompts"
 
+# Arquivo de tokens Samsung Health (armazenado fora do repo)
+SAMSUNG_TOKEN_PATH = Path.home() / ".tdah-ia" / ".samsung_tokens.json"
+
 
 class ConfigError(Exception):
     pass
@@ -36,4 +39,17 @@ def load_config() -> dict:
         "base_dir": os.environ.get("TDAH_BASE_DIR", "~/tdah-ia"),
         "editor": os.environ.get("TDAH_EDITOR", "code"),
         "claude_model": os.environ.get("TDAH_CLAUDE_MODEL", "claude-opus-4-7"),
+        # Samsung Health (opcionais — integração desabilitada se ausentes)
+        "samsung_client_id": os.environ.get("SAMSUNG_HEALTH_CLIENT_ID", ""),
+        "samsung_client_secret": os.environ.get("SAMSUNG_HEALTH_CLIENT_SECRET", ""),
+        "samsung_token_path": SAMSUNG_TOKEN_PATH,
     }
+
+
+def samsung_health_configurado(config: dict) -> bool:
+    """Retorna True se as credenciais Samsung estão definidas no .env."""
+    return bool(
+        config.get("samsung_client_id")
+        and config.get("samsung_client_secret")
+        and not config["samsung_client_id"].startswith("seu-client-id")
+    )

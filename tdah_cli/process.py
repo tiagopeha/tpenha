@@ -1,5 +1,6 @@
 import time
 from pathlib import Path
+from typing import Optional
 
 import httpx
 from rich.console import Console
@@ -17,16 +18,38 @@ FALLBACK_MODEL = "claude-sonnet-4-6"
 PROMPT_DIR = Path(__file__).parent / "prompts"
 
 
-def processar(transcricao: str, comando: str, config: dict) -> str:
-    """Processa a transcrição com Claude. Retorna o markdown gerado."""
+def processar(
+    transcricao: str,
+    comando: str,
+    config: dict,
+    contexto_saude: Optional[str] = None,
+) -> str:
+    """Processa a transcrição com Claude. Retorna o markdown gerado.
+
+    Args:
+        transcricao: Texto transcrito do áudio.
+        comando: Nome do bloco (ignicao, destrava, triagem, fechamento, saude).
+        config: Dicionário de configuração carregado por load_config().
+        contexto_saude: Contexto formatado do Samsung Health para injetar no prompt.
+                        Se None, nenhum dado de saúde é incluído.
+    """
     api_key = config["anthropic_api_key"]
     model = config.get("claude_model", "claude-opus-4-7")
     system_prompt = _carregar_prompt(comando)
 
+    # Injeta dados de saúde no início da mensagem do usuário, se disponíveis
+    mensagem = transcricao
+    if contexto_saude:
+        mensagem = (
+            f"{contexto_saude}\n\n"
+            f"---\n\n"
+            f"**Relato do usuário:**\n{transcricao}"
+        )
+
     with Status("🧠 Processando...", console=console, spinner="dots"):
         for tentativa in range(MAX_RETRIES):
             try:
-                return _chamar_claude(transcricao, system_prompt, api_key, model)
+                return _chamar_claude(mensagem, system_prompt, api_key, model)
             except httpx.TimeoutException:
                 if tentativa == MAX_RETRIES - 1:
                     raise
@@ -54,12 +77,22 @@ def processar(transcricao: str, comando: str, config: dict) -> str:
     raise RuntimeError("Falha no processamento após todas as tentativas.")
 
 
-def _chamar_claude(transcricao: str, system_prompt: str, api_key: str, model: str) -> str:
+def processar_saude(contexto_saude: str, config: dict) -> str:
+    """Envia os dados de saúde para o Claude gerar análise e recomendações."""
+    return processar(
+        transcricao=contexto_saude,
+        comando="saude",
+        config=config,
+        contexto_saude=None,  # O próprio contexto já é a entrada
+    )
+
+
+def _chamar_claude(mensagem: str, system_prompt: str, api_key: str, model: str) -> str:
     payload = {
         "model": model,
         "max_tokens": MAX_TOKENS,
         "system": system_prompt,
-        "messages": [{"role": "user", "content": transcricao}],
+        "messages": [{"role": "user", "content": mensagem}],
     }
     headers = {
         "x-api-key": api_key,
