@@ -4,7 +4,7 @@ Rotas de refeições.
 from __future__ import annotations
 
 import os
-from datetime import date
+from datetime import date as date_module
 
 from fastapi import APIRouter, HTTPException, Query
 
@@ -19,7 +19,7 @@ router = APIRouter()
 async def list_meals(date: str = Query(default=None)):
     """Lista refeições de um dia específico."""
     if date is None:
-        date = str(date.today())
+        date = str(date_module.today())
 
     async with await get_db() as db:
         cursor = await db.execute(
