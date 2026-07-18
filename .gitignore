@@ -34,3 +34,13 @@ env/
 # ~/tdah-ia/ é fora do repo, mas proteção extra caso o repo seja init lá dentro
 [0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]/
 _falhas/
+
+# Node / monorepo
+node_modules/
+.turbo/
+.next/
+.expo/
+coverage/
+*.tsbuildinfo
+.env.local
+.env.*.local

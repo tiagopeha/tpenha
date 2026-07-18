@@ -1,0 +1,23 @@
+{
+  "name": "@diamante/mobile",
+  "version": "0.0.1",
+  "private": true,
+  "main": "index.js",
+  "scripts": {
+    "dev": "expo start",
+    "android": "expo run:android",
+    "ios": "expo run:ios",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@diamante/core": "workspace:*",
+    "expo": "~57.0.7",
+    "expo-status-bar": "~57.0.1",
+    "react": "19.2.7",
+    "react-native": "0.86.0"
+  },
+  "devDependencies": {
+    "@types/react": "^19.2.17",
+    "typescript": "^5.9.3"
+  }
+}

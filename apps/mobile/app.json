@@ -1,0 +1,11 @@
+{
+  "expo": {
+    "name": "Diamante",
+    "slug": "diamante",
+    "version": "0.0.1",
+    "orientation": "portrait",
+    "userInterfaceStyle": "automatic",
+    "newArchEnabled": true,
+    "assetBundlePatterns": ["**/*"]
+  }
+}
