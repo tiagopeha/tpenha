@@ -1,5 +1,6 @@
 import type { GameEvent, Half } from './events';
-import { effectiveEvents } from './events';
+import { CATCHER_POSITION, PITCHER_POSITION, effectiveEvents } from './events';
+import type { RulesProfile } from './rulesProfile';
 
 export type BattingLine = {
   playerId: string;
@@ -34,6 +35,8 @@ export type PitchingLine = {
   r: number;
   bb: number;
   k: number;
+  /** Arremessos deste jogo (o razão diário fica em derivePitcherDayLedger). */
+  pitches: number;
   /** null quando IP = 0 — a UI exibe "—", nunca NaN. */
   whip: number | null;
   ra9: number | null;
@@ -70,6 +73,7 @@ type PitchingTally = {
   r: number;
   bb: number;
   k: number;
+  pitches: number;
 };
 
 const PA_OUT_RESULTS = new Set([
@@ -91,17 +95,23 @@ const PA_OUT_RESULTS = new Set([
  * - BA = H/AB · OBP = (H+BB+HBP)/(AB+BB+HBP+SF) · SLG = TB/AB · OPS = OBP+SLG
  * - R = corredor com `to: 'home'` não substituído (+ a corrida do próprio
  *   rebatedor no homeRun)
- * - RBI (simplificado v1) = corridas na PA do rebatedor, exceto quando
- *   `result: 'reachedOnError'`; roubo de casa não gera RBI
+ * - RBI (simplificado v1) = corridas na PA do rebatedor cujo avanço é ação do
+ *   rebatedor (`reason` ausente ou 'batterAction'), exceto PA de
+ *   `reachedOnError`; roubo de casa, WP/PB, balk e erro não geram RBI
  * - IP = outs/3 (notação 5.1 = 5⅓) · WHIP = (BB+H)/IP · RA9 = 9·R/IP
  *
- * Atribuição de arremessador (v1): o jogador do nosso time escalado na posição
- * 'P' (via lineupSet/substitutionMade) responde pelas meias-entradas em que
- * defendemos — alta se somos mandantes, baixa se visitantes. Corridas são
- * debitadas ao arremessador no montinho quando a corrida cruza o home
- * (simplificação v1; corredores herdados ficam para a fase 2, junto com ERA).
+ * Atribuição de arremessador: posição '1' do mapa defensivo (lineupSet /
+ * defensiveChange) responde pelas meias-entradas em que defendemos — alta se
+ * mandantes, baixa se visitantes. Corridas são debitadas de quem está no
+ * montinho quando a corrida cruza o home (corredores herdados: fase 2, com ERA).
+ *
+ * Corredor de cortesia: a corrida credita ao TITULAR (o CC é alias, não
+ * substituição) — pendente de validação com o árbitro (regras-cbbs.md §6.3).
+ *
+ * `profile` é opcional e só afeta as regras de corrida aplicadas pelo motor
+ * (roubo de home proibido ⇒ tentativa vira out, coerente com deriveGameState).
  */
-export function deriveBoxScore(events: readonly GameEvent[]): BoxScore {
+export function deriveBoxScore(events: readonly GameEvent[], profile?: RulesProfile): BoxScore {
   const batting = new Map<string, BattingTally>();
   const pitching = new Map<string, PitchingTally>();
 
@@ -130,7 +140,7 @@ export function deriveBoxScore(events: readonly GameEvent[]): BoxScore {
   const pitchingLine = (playerId: string): PitchingTally => {
     let line = pitching.get(playerId);
     if (line === undefined) {
-      line = { outsRecorded: 0, h: 0, r: 0, bb: 0, k: 0 };
+      line = { outsRecorded: 0, h: 0, r: 0, bb: 0, k: 0, pitches: 0 };
       pitching.set(playerId, line);
     }
     return line;
@@ -139,8 +149,10 @@ export function deriveBoxScore(events: readonly GameEvent[]): BoxScore {
   let teamIsHome: boolean | null = null;
   let half: Half | null = null;
   let currentPitcherId: string | null = null;
-  // PA em andamento: corridas subsequentes na mesma jogada creditam RBI.
+  // PA em andamento: corridas por ação do rebatedor na mesma jogada creditam RBI.
   let currentPA: { batterId: string; result: string } | null = null;
+  // Corredor de cortesia: aliasRunnerId → titularId (crédito ao titular).
+  const courtesyAliases = new Map<string, string>();
 
   const onDefense = (): boolean =>
     teamIsHome !== null && half !== null && (teamIsHome ? half === 'top' : half === 'bottom');
@@ -149,15 +161,11 @@ export function deriveBoxScore(events: readonly GameEvent[]): BoxScore {
     onDefense() && currentPitcherId !== null ? pitchingLine(currentPitcherId) : null;
 
   const runScored = (runnerId: string): void => {
-    battingLine(runnerId).r += 1;
+    const officialRunnerId = courtesyAliases.get(runnerId) ?? runnerId;
+    courtesyAliases.delete(runnerId);
+    battingLine(officialRunnerId).r += 1;
     const pitcher = defensivePitcher();
     if (pitcher !== null) pitcher.r += 1;
-  };
-
-  const creditRbi = (): void => {
-    if (currentPA !== null && currentPA.result !== 'reachedOnError') {
-      battingLine(currentPA.batterId).rbi += 1;
-    }
   };
 
   for (const event of effectiveEvents(events)) {
@@ -168,23 +176,38 @@ export function deriveBoxScore(events: readonly GameEvent[]): BoxScore {
       }
 
       case 'lineupSet': {
-        const pitcherEntry = event.payload.entries.find((entry) => entry.position === 'P');
-        if (pitcherEntry !== undefined) currentPitcherId = pitcherEntry.playerId;
+        currentPitcherId = event.payload.defense[PITCHER_POSITION] ?? currentPitcherId;
         break;
       }
 
-      case 'substitutionMade': {
-        if (event.payload.position === 'P') {
-          currentPitcherId = event.payload.inPlayerId;
-        } else if (event.payload.outPlayerId === currentPitcherId) {
-          currentPitcherId = null;
-        }
+      case 'defensiveChange': {
+        const newPitcher = event.payload.assignments[PITCHER_POSITION];
+        if (newPitcher !== undefined) currentPitcherId = newPitcher;
         break;
       }
 
-      case 'halfInningStarted': {
-        half = event.payload.half;
+      case 'offensiveSubstitution': {
+        // Substituição permanente: se o atleta que sai é o arremessador, o
+        // montinho fica vago até um defensiveChange.
+        if (event.payload.outPlayerId === currentPitcherId) currentPitcherId = null;
+        break;
+      }
+
+      case 'courtesyRunnerIn': {
+        courtesyAliases.set(event.payload.runnerId, event.payload.forPlayerId);
+        break;
+      }
+
+      case 'halfInningStarted':
+      case 'halfInningEnded': {
+        if (event.type === 'halfInningStarted') half = event.payload.half;
         currentPA = null;
+        courtesyAliases.clear(); // alias de CC se dissolve na virada da meia-entrada
+        break;
+      }
+
+      case 'pitchThrown': {
+        pitchingLine(event.payload.pitcherId).pitches += 1;
         break;
       }
 
@@ -247,20 +270,27 @@ export function deriveBoxScore(events: readonly GameEvent[]): BoxScore {
       }
 
       case 'runnerAdvanced': {
-        if (event.payload.to === 'home') {
-          runScored(event.payload.runnerId);
-          creditRbi();
+        const { runnerId, to, reason } = event.payload;
+        if (to !== 'home') break;
+
+        // Roubo de home proibido pelo perfil: tentativa = out declarado.
+        if (reason === 'stolenBase' && profile !== undefined && !profile.running.stealHomeAllowed) {
+          courtesyAliases.delete(runnerId);
+          const pitcher = defensivePitcher();
+          if (pitcher !== null) pitcher.outsRecorded += 1;
+          break;
+        }
+
+        runScored(runnerId);
+        const rbiEligible = reason === undefined || reason === 'batterAction';
+        if (rbiEligible && currentPA !== null && currentPA.result !== 'reachedOnError') {
+          battingLine(currentPA.batterId).rbi += 1;
         }
         break;
       }
 
-      case 'stolenBase': {
-        // Roubo de casa: corrida sem RBI.
-        if (event.payload.to === 'home') runScored(event.payload.runnerId);
-        break;
-      }
-
       case 'runnerOut': {
+        courtesyAliases.delete(event.payload.runnerId);
         const pitcher = defensivePitcher();
         if (pitcher !== null) pitcher.outsRecorded += 1;
         break;
@@ -271,7 +301,7 @@ export function deriveBoxScore(events: readonly GameEvent[]): BoxScore {
         break;
       }
 
-      case 'pitchThrown':
+      case 'clockStarted':
         break;
     }
   }
@@ -319,6 +349,7 @@ export function deriveBoxScore(events: readonly GameEvent[]): BoxScore {
       r: t.r,
       bb: t.bb,
       k: t.k,
+      pitches: t.pitches,
       whip: t.outsRecorded > 0 ? (t.bb + t.h) / innings : null,
       ra9: t.outsRecorded > 0 ? (9 * t.r) / innings : null,
     };
