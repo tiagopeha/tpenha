@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { effectiveEvents, parseGameEvent } from '../src';
-import { GameLogBuilder } from './helpers';
+import { effectiveEvents, parseGameEvent, parseRulesProfile } from '../src';
+import { GameLogBuilder, testProfile } from './helpers';
 
 describe('gameEventSchema', () => {
   const envelope = {
@@ -11,13 +11,53 @@ describe('gameEventSchema', () => {
     deviceId: 'device-1',
   };
 
-  it('aceita um evento válido', () => {
+  it('aceita uma PA com atribuição defensiva do modo oficial', () => {
     const event = parseGameEvent({
       ...envelope,
       type: 'plateAppearanceRecorded',
-      payload: { batterId: 'camisa-7', result: 'sacFly', battedBall: 'fly' },
+      payload: {
+        batterId: 'camisa-7',
+        result: 'outInPlay',
+        battedBall: 'ground',
+        defense: { putoutSequence: [6, 3] },
+      },
     });
     expect(event.type).toBe('plateAppearanceRecorded');
+  });
+
+  it('aceita gameCreated com modo oficial, elenco avulso e dia de competição', () => {
+    const event = parseGameEvent({
+      ...envelope,
+      type: 'gameCreated',
+      payload: {
+        sport: 'baseball',
+        category: 'preInfantil',
+        rulesProfileId: 'cbbs-pi-2026',
+        mode: 'official',
+        opponentName: 'Nikkei Curitiba',
+        opponentRoster: [{ name: 'Sato', number: '7' }],
+        home: false,
+        competitionDayId: 'brasileiro-pi-2026-03-14',
+      },
+    });
+    expect(event.type).toBe('gameCreated');
+  });
+
+  it('aceita corredor de cortesia e fim de meia-entrada', () => {
+    expect(
+      parseGameEvent({
+        ...envelope,
+        type: 'courtesyRunnerIn',
+        payload: { forPlayerId: 'camisa-2', runnerId: 'camisa-15', base: 2 },
+      }).type,
+    ).toBe('courtesyRunnerIn');
+    expect(
+      parseGameEvent({
+        ...envelope,
+        type: 'halfInningEnded',
+        payload: { reason: 'runCap' },
+      }).type,
+    ).toBe('halfInningEnded');
   });
 
   it('rejeita payload que não bate com o type', () => {
@@ -41,9 +81,7 @@ describe('gameEventSchema', () => {
   });
 
   it('rejeita type desconhecido e ts fora do ISO 8601', () => {
-    expect(() =>
-      parseGameEvent({ ...envelope, type: 'balk', payload: {} }),
-    ).toThrow();
+    expect(() => parseGameEvent({ ...envelope, type: 'balk', payload: {} })).toThrow();
     expect(() =>
       parseGameEvent({
         ...envelope,
@@ -51,6 +89,27 @@ describe('gameEventSchema', () => {
         type: 'gameEnded',
         payload: { reason: 'regulation' },
       }),
+    ).toThrow();
+  });
+
+  it('aceita os novos motivos de encerramento (mercy, timeLimit, suspended)', () => {
+    for (const reason of ['mercy', 'timeLimit', 'suspended'] as const) {
+      expect(
+        parseGameEvent({ ...envelope, type: 'gameEnded', payload: { reason } }).type,
+      ).toBe('gameEnded');
+    }
+  });
+});
+
+describe('rulesProfileSchema', () => {
+  it('valida o perfil de teste e rejeita margem de reentrada fora da norma', () => {
+    expect(() => parseRulesProfile(testProfile())).not.toThrow();
+    expect(() =>
+      parseRulesProfile(
+        testProfile({
+          pitching: { style: 'kidPitch', dailyPitchLimit: 60, warnAt: 55, reentryBanMargin: 7 as never },
+        }),
+      ),
     ).toThrow();
   });
 });

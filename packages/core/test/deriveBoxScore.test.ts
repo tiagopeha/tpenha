@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { deriveBoxScore, formatRate } from '../src';
-import { GameLogBuilder, battingLineOf, pitchingLineOf } from './helpers';
+import { GameLogBuilder, battingLineOf, pitchingLineOf, testProfile } from './helpers';
 
 describe('deriveBoxScore — fórmulas de rebatedor', () => {
   it('AB = PA − (BB + HBP + SAC + SF); OBP tira o SAC do denominador e mantém o SF', () => {
@@ -75,7 +75,7 @@ describe('deriveBoxScore — corridas e RBI', () => {
     g.halfInning(1, 'bottom');
     g.pa('camisa-1', 'single');
     g.pa('camisa-2', 'homeRun');
-    g.advance('camisa-1', 1, 'home');
+    g.advance('camisa-1', 1, 'home', 'batterAction');
 
     const box = deriveBoxScore(g.events);
     expect(battingLineOf(box, 'camisa-1').r).toBe(1);
@@ -89,14 +89,14 @@ describe('deriveBoxScore — corridas e RBI', () => {
     g.halfInning(1, 'bottom');
     g.pa('camisa-1', 'single');
     g.pa('camisa-2', 'single');
-    g.advance('camisa-1', 1, 2);
+    g.advance('camisa-1', 1, 2, 'batterAction');
     g.pa('camisa-3', 'single');
-    g.advance('camisa-1', 2, 3);
-    g.advance('camisa-2', 1, 2);
+    g.advance('camisa-1', 2, 3, 'batterAction');
+    g.advance('camisa-2', 1, 2, 'batterAction');
     g.pa('camisa-4', 'walk');
-    g.advance('camisa-1', 3, 'home');
-    g.advance('camisa-2', 2, 3);
-    g.advance('camisa-3', 1, 2);
+    g.advance('camisa-1', 3, 'home', 'batterAction');
+    g.advance('camisa-2', 2, 3, 'batterAction');
+    g.advance('camisa-3', 1, 2, 'batterAction');
 
     const box = deriveBoxScore(g.events);
     expect(battingLineOf(box, 'camisa-4').rbi).toBe(1);
@@ -104,33 +104,49 @@ describe('deriveBoxScore — corridas e RBI', () => {
     expect(battingLineOf(box, 'camisa-1').r).toBe(1);
   });
 
-  it('roubo de casa conta corrida para o corredor, sem RBI para ninguém', () => {
+  it('corrida por roubo, WP/PB ou balk conta R, mas nunca RBI', () => {
+    for (const reason of ['stolenBase', 'wildPitch', 'passedBall', 'balk'] as const) {
+      const g = new GameLogBuilder();
+      g.gameCreated({ home: true });
+      g.halfInning(1, 'bottom');
+      g.pa('camisa-1', 'triple');
+      g.pa('camisa-2', 'single'); // PA corrente na hora da corrida
+      g.advance('camisa-1', 3, 'home', reason);
+
+      const box = deriveBoxScore(g.events);
+      expect(battingLineOf(box, 'camisa-1').r).toBe(1);
+      expect(battingLineOf(box, 'camisa-2').rbi).toBe(0);
+    }
+  });
+
+  it('corrida do corredor de cortesia credita ao titular (pendente validação do árbitro)', () => {
     const g = new GameLogBuilder();
     g.gameCreated({ home: true });
     g.halfInning(1, 'bottom');
-    g.pa('camisa-1', 'triple');
-    g.steal('camisa-1', 'home');
+    g.pa('camisa-2', 'double'); // receptor embasa
+    g.courtesyRunner('camisa-2', 'camisa-15', 2);
+    g.pa('camisa-3', 'single');
+    g.advance('camisa-15', 2, 'home', 'batterAction');
 
     const box = deriveBoxScore(g.events);
-    expect(battingLineOf(box, 'camisa-1').r).toBe(1);
-    for (const line of box.batting) {
-      expect(line.rbi).toBe(0);
-    }
+    expect(battingLineOf(box, 'camisa-2').r).toBe(1); // titular leva a corrida
+    expect(box.batting.some((l) => l.playerId === 'camisa-15')).toBe(false);
+    expect(battingLineOf(box, 'camisa-3').rbi).toBe(1);
   });
 });
 
 describe('deriveBoxScore — arremessadores', () => {
-  // Nosso time é mandante ⇒ defende na alta. Arremessador = posição 'P' na
-  // escalação, atualizado por substituição.
+  // Nosso time é mandante ⇒ defende na alta. Arremessador = posição '1' do
+  // mapa defensivo, atualizado por defensiveChange.
   const buildPitchingGame = () => {
     const g = new GameLogBuilder();
     g.gameCreated({ home: true });
-    g.lineup([{ playerId: 'camisa-21', battingSlot: 9, position: 'P' }]);
+    g.lineup({ '1': 'camisa-21', '2': 'camisa-9' });
 
     g.halfInning(1, 'top');
     g.pa('opp-1', 'strikeoutSwinging');
     g.pa('opp-2', 'strikeoutLooking');
-    g.pa('opp-3', 'outInPlay');
+    g.pa('opp-3', 'outInPlay', { defense: { putoutSequence: [6, 3] } });
 
     g.halfInning(1, 'bottom');
     g.pa('camisa-1', 'outInPlay');
@@ -140,12 +156,12 @@ describe('deriveBoxScore — arremessadores', () => {
     g.halfInning(2, 'top');
     g.pa('opp-4', 'single');
     g.pa('opp-5', 'walk');
-    g.advance('opp-4', 1, 2);
-    g.sub('camisa-21', 'camisa-33', 9, 'P'); // troca de arremessador no meio da entrada
+    g.advance('opp-4', 1, 2, 'batterAction');
+    g.defChange({ '1': 'camisa-33' }); // troca de arremessador no meio da entrada
     g.pa('opp-6', 'strikeoutLooking');
     g.pa('opp-7', 'homeRun');
-    g.advance('opp-4', 2, 'home');
-    g.advance('opp-5', 1, 'home');
+    g.advance('opp-4', 2, 'home', 'batterAction');
+    g.advance('opp-5', 1, 'home', 'batterAction');
     g.pa('opp-8', 'outInPlay');
     return g;
   };
@@ -189,10 +205,26 @@ describe('deriveBoxScore — arremessadores', () => {
     expect(box.pitching.map((l) => l.playerId).sort()).toEqual(['camisa-21', 'camisa-33']);
   });
 
+  it('pitch a pitch alimenta a contagem de arremessos da linha', () => {
+    const g = new GameLogBuilder();
+    g.gameCreated({ home: true });
+    g.lineup({ '1': 'camisa-21' });
+    g.halfInning(1, 'top');
+    g.pitch('camisa-21', 'ball');
+    g.pitch('camisa-21', 'strikeSwinging');
+    g.pitch('camisa-21', 'foul');
+    g.pitch('camisa-21', 'strikeSwinging');
+    g.pa('opp-1', 'strikeoutSwinging');
+
+    const line = pitchingLineOf(deriveBoxScore(g.events), 'camisa-21');
+    expect(line.pitches).toBe(4);
+    expect(line.k).toBe(1);
+  });
+
   it('IP = 0: WHIP e RA9 viram null, exibidos como "—"', () => {
     const g = new GameLogBuilder();
     g.gameCreated({ home: true });
-    g.lineup([{ playerId: 'camisa-21', battingSlot: 9, position: 'P' }]);
+    g.lineup({ '1': 'camisa-21' });
     g.halfInning(1, 'top');
     g.pa('opp-1', 'single');
 
@@ -201,5 +233,23 @@ describe('deriveBoxScore — arremessadores', () => {
     expect(line.whip).toBeNull();
     expect(line.ra9).toBeNull();
     expect(formatRate(line.whip, 2)).toBe('—');
+  });
+
+  it('roubo de home proibido pelo perfil: sem corrida no box, out para o arremessador', () => {
+    const profile = testProfile({
+      category: 'preInfantil',
+      running: { leadOffAllowed: false, stealHomeAllowed: false },
+    });
+    const g = new GameLogBuilder();
+    g.gameCreated({ home: true });
+    g.lineup({ '1': 'camisa-21' });
+    g.halfInning(1, 'top');
+    g.pa('opp-1', 'triple');
+    g.advance('opp-1', 3, 'home', 'stolenBase');
+
+    const box = deriveBoxScore(g.events, profile);
+    expect(battingLineOf(box, 'opp-1').r).toBe(0);
+    expect(pitchingLineOf(box, 'camisa-21').outsRecorded).toBe(1);
+    expect(pitchingLineOf(box, 'camisa-21').r).toBe(0);
   });
 });
