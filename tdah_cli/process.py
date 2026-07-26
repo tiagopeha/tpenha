@@ -5,6 +5,8 @@ import httpx
 from rich.console import Console
 from rich.status import Status
 
+from aiobs import EventStatus, get_tracker, AIEvent
+
 console = Console()
 
 CLAUDE_URL = "https://api.anthropic.com/v1/messages"
@@ -26,7 +28,10 @@ def processar(transcricao: str, comando: str, config: dict) -> str:
     with Status("🧠 Processando...", console=console, spinner="dots"):
         for tentativa in range(MAX_RETRIES):
             try:
-                return _chamar_claude(transcricao, system_prompt, api_key, model)
+                return _chamar_claude(
+                    transcricao, system_prompt, api_key, model,
+                    comando=comando, attempt=tentativa + 1,
+                )
             except httpx.TimeoutException:
                 if tentativa == MAX_RETRIES - 1:
                     raise
@@ -41,6 +46,12 @@ def processar(transcricao: str, comando: str, config: dict) -> str:
                     console.print(
                         f"[yellow]⚠ Modelo {model} não encontrado, usando {FALLBACK_MODEL}[/yellow]"
                     )
+                    tracker = get_tracker()
+                    tracker.record_event(AIEvent(
+                        provider="anthropic", model=model, operation="chat",
+                        status=EventStatus.FALLBACK, fallback_from_model=model,
+                        caller="process.processar", command=comando,
+                    ))
                     model = FALLBACK_MODEL
                 else:
                     raise
@@ -54,7 +65,10 @@ def processar(transcricao: str, comando: str, config: dict) -> str:
     raise RuntimeError("Falha no processamento após todas as tentativas.")
 
 
-def _chamar_claude(transcricao: str, system_prompt: str, api_key: str, model: str) -> str:
+def _chamar_claude(
+    transcricao: str, system_prompt: str, api_key: str, model: str,
+    comando: str = "", attempt: int = 1,
+) -> str:
     payload = {
         "model": model,
         "max_tokens": MAX_TOKENS,
@@ -67,11 +81,30 @@ def _chamar_claude(transcricao: str, system_prompt: str, api_key: str, model: st
         "content-type": "application/json",
     }
 
-    with httpx.Client(timeout=TIMEOUT) as client:
-        resp = client.post(CLAUDE_URL, json=payload, headers=headers)
+    tracker = get_tracker()
 
-    resp.raise_for_status()
-    texto = resp.json()["content"][0]["text"].strip()
+    with tracker.track(
+        provider="anthropic",
+        model=model,
+        operation="chat",
+        endpoint=CLAUDE_URL,
+        caller="process._chamar_claude",
+        command=comando,
+        attempt=attempt,
+        max_attempts=MAX_RETRIES,
+    ) as ctx:
+        with httpx.Client(timeout=TIMEOUT) as client:
+            resp = client.post(CLAUDE_URL, json=payload, headers=headers)
+        resp.raise_for_status()
+        data = resp.json()
+        texto = data["content"][0]["text"].strip()
+        usage = data.get("usage", {})
+        ctx.set_tokens(
+            input_tokens=usage.get("input_tokens", 0),
+            output_tokens=usage.get("output_tokens", 0),
+        )
+        ctx.set_response(resp)
+
     console.print(f"[green]✓ Processamento concluído[/green] ({len(texto)} chars)")
     return texto
 

@@ -9,6 +9,8 @@ from rich.panel import Panel
 
 from tdah_cli import __version__
 from tdah_cli.config import load_config, ConfigError
+from aiobs import init_tracker
+from aiobs.backends import JSONLBackend
 
 console = Console()
 
@@ -27,6 +29,8 @@ def run_bloco(comando: str):
     except ConfigError as e:
         console.print(f"\n[red]❌ Configuração inválida:[/red] {e}")
         sys.exit(1)
+
+    init_tracker(project="tdah-ia-cli", backends=[JSONLBackend()])
 
     audio_path = None
     transcricao = None

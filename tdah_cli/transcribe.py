@@ -5,6 +5,8 @@ import httpx
 from rich.console import Console
 from rich.status import Status
 
+from aiobs import get_tracker
+
 console = Console()
 
 WHISPER_URL = "https://api.openai.com/v1/audio/transcriptions"
@@ -20,7 +22,7 @@ def transcrever(audio_path: str, config: dict) -> str:
     with Status("🔤 Transcrevendo...", console=console, spinner="dots"):
         for tentativa in range(MAX_RETRIES):
             try:
-                return _chamar_whisper(audio_path, api_key)
+                return _chamar_whisper(audio_path, api_key, attempt=tentativa + 1)
             except httpx.TimeoutException:
                 if tentativa == MAX_RETRIES - 1:
                     raise
@@ -42,18 +44,33 @@ def transcrever(audio_path: str, config: dict) -> str:
     raise RuntimeError("Falha na transcrição após todas as tentativas.")
 
 
-def _chamar_whisper(audio_path: str, api_key: str) -> str:
+def _chamar_whisper(audio_path: str, api_key: str, attempt: int = 1) -> str:
     path = Path(audio_path)
-    with path.open("rb") as f:
-        with httpx.Client(timeout=TIMEOUT) as client:
-            resp = client.post(
-                WHISPER_URL,
-                headers={"Authorization": f"Bearer {api_key}"},
-                files={"file": (path.name, f, "audio/wav")},
-                data={"model": "whisper-1", "language": "pt"},
-            )
-    resp.raise_for_status()
-    texto = resp.json().get("text", "").strip()
+    audio_size = path.stat().st_size
+    tracker = get_tracker()
+
+    with tracker.track(
+        provider="openai",
+        model="whisper-1",
+        operation="transcription",
+        endpoint=WHISPER_URL,
+        caller="transcribe._chamar_whisper",
+        attempt=attempt,
+        max_attempts=MAX_RETRIES,
+        audio_size_bytes=audio_size,
+    ) as ctx:
+        with path.open("rb") as f:
+            with httpx.Client(timeout=TIMEOUT) as client:
+                resp = client.post(
+                    WHISPER_URL,
+                    headers={"Authorization": f"Bearer {api_key}"},
+                    files={"file": (path.name, f, "audio/wav")},
+                    data={"model": "whisper-1", "language": "pt"},
+                )
+        resp.raise_for_status()
+        texto = resp.json().get("text", "").strip()
+        ctx.set_response(resp)
+
     console.print(f"[green]✓ Transcrição concluída[/green] ({len(texto)} chars)")
     return texto
 

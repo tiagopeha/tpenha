@@ -4,8 +4,8 @@ build-backend = "hatchling.build"
 
 [project]
 name = "tdah-ia-cli"
-version = "0.1.0"
-description = "CLI pessoal para apoiar rotina TDAH com IA"
+version = "0.2.0"
+description = "CLI pessoal para apoiar rotina TDAH com IA + observabilidade"
 requires-python = ">=3.11"
 dependencies = [
     "click>=8.1",
@@ -17,8 +17,15 @@ dependencies = [
     "numpy>=1.24",
 ]
 
+[project.optional-dependencies]
+mcp = ["fastmcp>=2.0"]
+
 [project.scripts]
 tdah = "tdah_cli.cli:main"
+aiobs-mcp = "aiobs_mcp.server:main"
 
 [tool.hatch.build.targets.wheel]
-packages = ["tdah_cli"]
+packages = ["tdah_cli", "aiobs", "aiobs_mcp"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

@@ -30,6 +30,10 @@ env/
 # macOS
 .DS_Store
 
+# Observabilidade AI (logs locais)
+logs/
+*.jsonl
+
 # Dados do usuário (não vão pro repo)
 # ~/tdah-ia/ é fora do repo, mas proteção extra caso o repo seja init lá dentro
 [0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]/
