@@ -23,20 +23,20 @@ body{
 }
 
 /* ===== MAGAZINE CONTAINER ===== */
-.magazine{position:relative;width:100%;height:100dvh;overflow:hidden;perspective:1500px}
+.magazine{position:relative;width:100%;height:100dvh;overflow:hidden}
 
 .page{
   position:absolute;inset:0;
   display:flex;flex-direction:column;align-items:center;
   padding:var(--page-pad);padding-bottom:5rem;
   opacity:0;pointer-events:none;
-  transition:opacity .45s ease,transform .6s cubic-bezier(.4,.0,.2,1);
+  transform:scale(.92);
+  transition:opacity .4s ease,transform .45s cubic-bezier(.32,.72,.45,1);
   overflow-y:auto;overflow-x:hidden;
   -webkit-overflow-scrolling:touch;
-  -webkit-backface-visibility:hidden;
-  backface-visibility:hidden;
+  will-change:transform,opacity;
 }
-.page.active{opacity:1;pointer-events:auto}
+.page.active{opacity:1;pointer-events:auto;transform:scale(1)}
 
 @media(prefers-reduced-motion:reduce){
   .page{transition:opacity .15s !important;transform:none !important}
@@ -1063,26 +1063,20 @@ body{
       el.style.animation = '';
     });
 
-    if(direction > 0){
-      oldPage.style.transformOrigin = 'left center';
-      newPage.style.transformOrigin = 'right center';
-    } else {
-      oldPage.style.transformOrigin = 'right center';
-      newPage.style.transformOrigin = 'left center';
-    }
-
     newPage.style.transition = 'none';
-    newPage.style.transform = direction > 0 ? 'rotateY(90deg)' : 'rotateY(-90deg)';
+    newPage.style.transform = 'scale(.92)';
     newPage.style.opacity = '0';
     newPage.offsetHeight;
 
     oldPage.classList.remove('active');
-    oldPage.style.transform = direction > 0 ? 'rotateY(-90deg)' : 'rotateY(90deg)';
+    oldPage.style.transform = direction > 0
+      ? 'translateX(-100%) scale(.88)'
+      : 'translateX(100%) scale(.88)';
     oldPage.style.opacity = '0';
 
     newPage.style.transition = '';
     newPage.classList.add('active');
-    newPage.style.transform = 'rotateY(0deg)';
+    newPage.style.transform = 'scale(1)';
     newPage.style.opacity = '';
 
     current = index;
@@ -1101,11 +1095,9 @@ body{
     setTimeout(function(){
       oldPage.style.transform = '';
       oldPage.style.opacity = '';
-      oldPage.style.transformOrigin = '';
       newPage.style.transform = '';
-      newPage.style.transformOrigin = '';
       isAnimating = false;
-    }, 650);
+    }, 500);
   }
 
   function nextPage(){ goTo(current + 1); }
