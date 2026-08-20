@@ -23,23 +23,23 @@ body{
 }
 
 /* ===== MAGAZINE CONTAINER ===== */
-.magazine{position:relative;width:100%;height:100dvh;overflow:hidden}
+.magazine{position:relative;width:100%;height:100dvh;overflow:hidden;perspective:1500px}
 
 .page{
   position:absolute;inset:0;
   display:flex;flex-direction:column;align-items:center;
   padding:var(--page-pad);padding-bottom:5rem;
   opacity:0;pointer-events:none;
-  transform:translateX(60px);
-  transition:opacity .45s ease,transform .45s ease;
+  transition:opacity .45s ease,transform .6s cubic-bezier(.4,.0,.2,1);
   overflow-y:auto;overflow-x:hidden;
   -webkit-overflow-scrolling:touch;
+  -webkit-backface-visibility:hidden;
+  backface-visibility:hidden;
 }
-.page.active{opacity:1;pointer-events:auto;transform:translateX(0)}
-.page.exit-left{opacity:0;transform:translateX(-60px)}
+.page.active{opacity:1;pointer-events:auto}
 
 @media(prefers-reduced-motion:reduce){
-  .page{transition:opacity .15s}
+  .page{transition:opacity .15s !important;transform:none !important}
 }
 
 /* ===== NAVIGATION ===== */
@@ -1057,19 +1057,26 @@ body{
       el.style.animation = '';
     });
 
-    oldPage.classList.remove('active');
-    oldPage.classList.add(direction > 0 ? 'exit-left' : '');
-    if(direction < 0){
-      oldPage.style.transform = 'translateX(60px)';
-      oldPage.style.opacity = '0';
+    if(direction > 0){
+      oldPage.style.transformOrigin = 'left center';
+      newPage.style.transformOrigin = 'right center';
+    } else {
+      oldPage.style.transformOrigin = 'right center';
+      newPage.style.transformOrigin = 'left center';
     }
 
-    newPage.style.transform = direction > 0 ? 'translateX(60px)' : 'translateX(-60px)';
+    newPage.style.transition = 'none';
+    newPage.style.transform = direction > 0 ? 'rotateY(90deg)' : 'rotateY(-90deg)';
     newPage.style.opacity = '0';
     newPage.offsetHeight;
 
+    oldPage.classList.remove('active');
+    oldPage.style.transform = direction > 0 ? 'rotateY(-90deg)' : 'rotateY(90deg)';
+    oldPage.style.opacity = '0';
+
+    newPage.style.transition = '';
     newPage.classList.add('active');
-    newPage.style.transform = '';
+    newPage.style.transform = 'rotateY(0deg)';
     newPage.style.opacity = '';
 
     current = index;
@@ -1086,11 +1093,13 @@ body{
     updatePageNumColor();
 
     setTimeout(function(){
-      oldPage.classList.remove('exit-left');
       oldPage.style.transform = '';
       oldPage.style.opacity = '';
+      oldPage.style.transformOrigin = '';
+      newPage.style.transform = '';
+      newPage.style.transformOrigin = '';
       isAnimating = false;
-    }, 480);
+    }, 650);
   }
 
   function nextPage(){ goTo(current + 1); }
