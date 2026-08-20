@@ -1,0 +1,911 @@
+<title>Revista Cooper Softball Sub 11</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Teko:wght@300;400;500;600;700&family=Nunito:ital,wght@0,400;0,600;0,700;0,800;1,400&display=swap">
+
+<style>
+*,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
+
+:root{
+  --navy:#0d1f3c;--navy-mid:#162b4d;--navy-light:#1e3a5f;
+  --gold:#edb830;--gold-light:#f5d56a;--gold-dim:rgba(237,184,48,.15);
+  --green:#1a7a3c;--green-dark:#145e2e;--green-light:#e8f5ed;
+  --coral:#d94f30;--coral-light:#fdf0ec;
+  --cream:#faf7f0;--cream-dark:#f0ead8;
+  --slate:#2e3d50;--soft:#7a8a9e;--mist:#eaf0f6;
+  --page-pad:clamp(1.2rem,4vw,2.5rem);
+}
+
+body{
+  font-family:'Nunito',system-ui,sans-serif;
+  background:var(--navy);color:var(--slate);
+  overflow:hidden;height:100dvh;width:100vw;
+  -webkit-user-select:none;user-select:none;
+  -webkit-tap-highlight-color:transparent;
+}
+
+/* ===== MAGAZINE CONTAINER ===== */
+.magazine{position:relative;width:100%;height:100dvh;overflow:hidden}
+
+.page{
+  position:absolute;inset:0;
+  display:flex;flex-direction:column;align-items:center;
+  padding:var(--page-pad);padding-bottom:5rem;
+  opacity:0;pointer-events:none;
+  transform:translateX(60px);
+  transition:opacity .45s ease,transform .45s ease;
+  overflow-y:auto;overflow-x:hidden;
+  -webkit-overflow-scrolling:touch;
+}
+.page.active{opacity:1;pointer-events:auto;transform:translateX(0)}
+.page.exit-left{opacity:0;transform:translateX(-60px)}
+
+@media(prefers-reduced-motion:reduce){
+  .page{transition:opacity .15s}
+}
+
+/* ===== NAVIGATION ===== */
+.nav-bar{
+  position:fixed;bottom:0;left:0;right:0;z-index:200;
+  display:flex;align-items:center;justify-content:center;gap:1rem;
+  padding:.8rem 1.5rem;
+  background:linear-gradient(transparent,rgba(10,22,42,.92) 40%);
+  pointer-events:none;
+}
+.nav-bar>*{pointer-events:auto}
+
+.nav-btn{
+  width:44px;height:44px;border-radius:50%;border:none;
+  background:rgba(255,255,255,.1);color:#fff;
+  font-size:1.1rem;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;
+  backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);
+  transition:background .2s,color .2s,opacity .2s;
+  flex-shrink:0;
+}
+.nav-btn:hover,.nav-btn:focus-visible{background:var(--gold);color:var(--navy)}
+.nav-btn:disabled{opacity:.25;cursor:default;background:rgba(255,255,255,.05)}
+.nav-btn:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+
+.nav-dots{display:flex;gap:6px;align-items:center}
+.dot{
+  width:8px;height:8px;border-radius:50%;border:none;padding:0;
+  background:rgba(255,255,255,.25);cursor:pointer;
+  transition:all .3s;
+}
+.dot:hover{background:rgba(255,255,255,.5)}
+.dot.active{background:var(--gold);width:22px;border-radius:4px}
+
+.page-num{
+  position:fixed;top:var(--page-pad);right:var(--page-pad);
+  font-family:'Teko',sans-serif;font-weight:300;font-size:.95rem;
+  color:rgba(255,255,255,.4);letter-spacing:.1em;z-index:100;
+  transition:color .3s;
+}
+.page-num.dark-text{color:rgba(46,61,80,.3)}
+
+/* ===== CLICK ZONES ===== */
+.click-zone{position:fixed;top:0;bottom:72px;width:28%;z-index:90;cursor:pointer}
+.click-left{left:0}.click-right{right:0}
+
+/* ===== SWIPE HINT ===== */
+.swipe-hint{
+  position:fixed;bottom:5.5rem;left:50%;transform:translateX(-50%);
+  font-size:.75rem;color:rgba(255,255,255,.45);letter-spacing:.08em;
+  display:flex;align-items:center;gap:.4rem;z-index:100;
+  animation:hintFade 3s ease 1.5s forwards;
+}
+@keyframes hintFade{to{opacity:0;pointer-events:none}}
+.swipe-hint svg{width:16px;height:16px;fill:currentColor}
+
+/* ===== SHARED COMPONENTS ===== */
+.page-inner{
+  width:100%;max-width:540px;
+  display:flex;flex-direction:column;gap:1.2rem;
+}
+
+.page-eyebrow{
+  font-family:'Teko',sans-serif;font-weight:400;
+  font-size:.85rem;letter-spacing:.25em;text-transform:uppercase;
+  color:var(--gold);
+}
+.page-eyebrow.dark{color:var(--green)}
+
+.page-title{
+  font-family:'Teko',sans-serif;font-weight:700;
+  font-size:clamp(2.2rem,7vw,3.6rem);line-height:.92;
+  text-transform:uppercase;color:var(--navy);
+  text-wrap:balance;
+}
+
+.section-sub{
+  font-family:'Teko',sans-serif;font-weight:500;
+  font-size:1.15rem;letter-spacing:.12em;text-transform:uppercase;
+  color:var(--slate);margin-top:.5rem;
+}
+
+.divider-stitch{
+  width:100%;height:24px;display:flex;align-items:center;
+  justify-content:center;gap:0;margin:.5rem 0;
+}
+.divider-stitch svg{width:100%;max-width:300px;height:12px}
+
+.photo-placeholder{
+  width:100%;aspect-ratio:16/9;border-radius:8px;
+  background:var(--mist);border:2px dashed rgba(46,61,80,.15);
+  display:flex;align-items:center;justify-content:center;
+  font-size:.85rem;color:var(--soft);font-weight:600;
+  letter-spacing:.04em;
+}
+
+/* ===== PAGE 1: CAPA ===== */
+.pg-cover{
+  background:linear-gradient(160deg,var(--navy) 0%,var(--navy-mid) 45%,var(--navy-light) 100%);
+  color:#fff;justify-content:center;text-align:center;
+}
+.pg-cover .page-inner{align-items:center;gap:.6rem}
+
+.cover-pattern{
+  position:absolute;inset:0;
+  background:repeating-linear-gradient(
+    -45deg,transparent,transparent 40px,
+    rgba(255,255,255,.018) 40px,rgba(255,255,255,.018) 41px
+  );
+  pointer-events:none;
+}
+
+.cover-year-bg{
+  position:absolute;top:50%;left:50%;
+  transform:translate(-50%,-50%);
+  font-family:'Teko',sans-serif;font-weight:700;
+  font-size:clamp(10rem,35vw,22rem);line-height:1;
+  color:rgba(255,255,255,.035);pointer-events:none;
+}
+
+.cover-federation{
+  font-family:'Teko',sans-serif;font-weight:300;
+  font-size:clamp(.7rem,2vw,.85rem);letter-spacing:.3em;
+  text-transform:uppercase;color:var(--gold);
+  border:1px solid rgba(237,184,48,.4);
+  padding:.25rem 1.2rem;border-radius:2px;
+  margin-bottom:.8rem;
+}
+
+.cover-main-title{
+  font-family:'Teko',sans-serif;font-weight:700;
+  font-size:clamp(3.2rem,11vw,6.5rem);line-height:.85;
+  text-transform:uppercase;color:#fff;
+}
+
+.cover-sport{
+  font-family:'Teko',sans-serif;font-weight:500;
+  font-size:clamp(1.6rem,5vw,3rem);line-height:1;
+  color:var(--gold);letter-spacing:.08em;
+}
+
+.cover-softball-wrap{
+  margin:1.2rem 0;position:relative;
+  width:clamp(56px,14vw,80px);height:clamp(56px,14vw,80px);
+}
+.cover-softball-wrap svg{
+  width:100%;height:100%;
+  animation:slowSpin 30s linear infinite;
+}
+@media(prefers-reduced-motion:reduce){
+  .cover-softball-wrap svg{animation:none}
+}
+@keyframes slowSpin{to{transform:rotate(360deg)}}
+
+.cover-team{
+  font-family:'Teko',sans-serif;font-weight:600;
+  font-size:clamp(1.6rem,5vw,2.8rem);letter-spacing:.25em;
+  color:#fff;
+  border-top:2px solid var(--gold);border-bottom:2px solid var(--gold);
+  padding:.2rem 1.8rem;
+}
+
+.cover-date{
+  margin-top:.6rem;font-size:.8rem;font-weight:600;
+  color:var(--soft);letter-spacing:.06em;
+}
+
+/* ===== PAGE 2: BOAS-VINDAS ===== */
+.pg-welcome{background:var(--cream);justify-content:center}
+.pg-welcome .page-inner{gap:1rem}
+
+.welcome-text{
+  display:flex;flex-direction:column;gap:.8rem;
+  font-size:clamp(.9rem,2.5vw,1.05rem);line-height:1.65;color:var(--slate);
+}
+
+.welcome-quote{
+  margin-top:.5rem;padding:1rem 1.2rem;
+  border-left:3px solid var(--gold);
+  font-style:italic;font-size:clamp(1rem,2.8vw,1.15rem);
+  line-height:1.55;color:var(--navy);font-weight:600;
+  position:relative;
+}
+.welcome-quote .qm{
+  font-family:'Teko',sans-serif;font-weight:700;
+  font-size:2.5rem;color:var(--gold);line-height:1;
+  position:absolute;top:-.2rem;left:1.2rem;
+}
+
+/* ===== PAGE 3: O CAMPEONATO ===== */
+.pg-tournament{
+  background:var(--cream);justify-content:flex-start;
+  padding-top:clamp(2.5rem,6vh,4rem);
+}
+.pg-tournament .page-inner{gap:1rem}
+
+.info-grid{
+  display:grid;grid-template-columns:1fr 1fr;gap:.6rem;
+}
+.info-card{
+  background:#fff;border-radius:8px;padding:.8rem 1rem;
+  border:1px solid rgba(26,122,60,.1);
+}
+.info-label{
+  font-family:'Teko',sans-serif;font-weight:400;
+  font-size:.7rem;letter-spacing:.18em;text-transform:uppercase;
+  color:var(--green);margin-bottom:.15rem;
+}
+.info-value{
+  font-weight:700;font-size:.95rem;color:var(--navy);
+}
+
+.teams-chips{
+  display:flex;flex-wrap:wrap;gap:.4rem;margin-top:.3rem;
+}
+.team-chip{
+  font-size:.78rem;font-weight:700;
+  padding:.3rem .8rem;border-radius:20px;
+  background:var(--mist);color:var(--slate);
+}
+.team-chip.highlight{
+  background:var(--navy);color:var(--gold);
+}
+
+/* ===== PAGE 4: NOSSO TIME ===== */
+.pg-team{
+  background:var(--cream);justify-content:flex-start;
+  padding-top:clamp(2rem,5vh,3.5rem);
+}
+.pg-team .page-inner{gap:.8rem}
+.pg-team .page-title{
+  font-size:clamp(2.5rem,9vw,4.5rem);
+  background:linear-gradient(135deg,var(--navy),var(--navy-light));
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;
+  background-clip:text;
+}
+
+.roster-grid{
+  display:grid;grid-template-columns:repeat(3,1fr);gap:.45rem;
+}
+@media(max-width:400px){.roster-grid{grid-template-columns:repeat(2,1fr)}}
+
+.player-card{
+  background:#fff;border-radius:6px;padding:.5rem .6rem;
+  display:flex;align-items:center;gap:.5rem;
+  border:1px solid rgba(0,0,0,.05);
+  transition:border-color .2s;
+}
+.player-card:hover{border-color:var(--gold)}
+.player-num{
+  font-family:'Teko',sans-serif;font-weight:600;
+  font-size:1.1rem;color:var(--coral);min-width:1.5rem;
+  text-align:center;line-height:1;
+}
+.player-name{
+  font-size:.75rem;font-weight:700;color:var(--navy);
+  line-height:1.2;
+}
+
+.staff-row{
+  display:flex;gap:.6rem;margin-top:.3rem;flex-wrap:wrap;
+}
+.staff-card{
+  flex:1;min-width:140px;
+  background:var(--navy);color:#fff;border-radius:6px;
+  padding:.6rem .8rem;
+}
+.staff-label{
+  font-family:'Teko',sans-serif;font-weight:300;
+  font-size:.65rem;letter-spacing:.15em;text-transform:uppercase;
+  color:var(--gold);
+}
+.staff-name{font-size:.85rem;font-weight:700;margin-top:.1rem}
+
+/* ===== PAGE 5: TABELA DE JOGOS ===== */
+.pg-schedule{
+  background:var(--mist);justify-content:flex-start;
+  padding-top:clamp(2.5rem,6vh,4rem);
+}
+.pg-schedule .page-inner{gap:1rem}
+.pg-schedule .page-title{color:var(--navy)}
+
+.games-list{display:flex;flex-direction:column;gap:.6rem}
+
+.game-card{
+  background:#fff;border-radius:8px;padding:.8rem 1rem;
+  border-left:4px solid var(--gold);
+  display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:.8rem;
+}
+.game-round{
+  font-family:'Teko',sans-serif;font-weight:600;
+  font-size:.8rem;letter-spacing:.1em;text-transform:uppercase;
+  color:var(--soft);writing-mode:vertical-lr;transform:rotate(180deg);
+}
+.game-teams{display:flex;align-items:center;gap:.5rem;flex-wrap:wrap}
+.game-team{font-weight:800;font-size:.9rem;color:var(--navy)}
+.game-team.cooper{color:var(--green)}
+.game-vs{
+  font-family:'Teko',sans-serif;font-weight:300;
+  font-size:.85rem;color:var(--soft);
+}
+.game-time{
+  font-family:'Teko',sans-serif;font-weight:500;
+  font-size:1.3rem;color:var(--navy);line-height:1;
+  text-align:right;
+}
+.game-time small{
+  display:block;font-size:.55rem;font-weight:300;
+  letter-spacing:.1em;color:var(--soft);
+}
+
+/* ===== PAGE 6: CONHEÇA O SOFTBALL ===== */
+.pg-softball{
+  background:var(--cream);justify-content:flex-start;
+  padding-top:clamp(2.5rem,6vh,4rem);
+}
+.pg-softball .page-inner{gap:1rem}
+
+.facts-list{display:flex;flex-direction:column;gap:.7rem}
+
+.fact-item{
+  display:flex;gap:.7rem;align-items:flex-start;
+}
+.fact-icon{
+  width:36px;height:36px;flex-shrink:0;
+  border-radius:50%;
+  display:flex;align-items:center;justify-content:center;
+  font-family:'Teko',sans-serif;font-weight:600;font-size:.9rem;
+}
+.fact-icon.gold{background:var(--gold-dim);color:var(--gold)}
+.fact-icon.green{background:var(--green-light);color:var(--green)}
+.fact-icon.coral{background:var(--coral-light);color:var(--coral)}
+
+.fact-text strong{
+  display:block;font-size:.85rem;color:var(--navy);margin-bottom:.1rem;
+}
+.fact-text p{font-size:.8rem;line-height:1.55;color:var(--slate)}
+
+.field-diagram{
+  width:100%;max-width:280px;margin:0 auto;
+  aspect-ratio:1;position:relative;
+}
+.field-diamond{
+  position:absolute;width:55%;height:55%;
+  top:22%;left:50%;
+  transform:translateX(-50%) rotate(45deg);
+  border:2px solid var(--green);border-radius:4px;
+  background:rgba(26,122,60,.06);
+}
+.field-diamond::before{
+  content:'';position:absolute;
+  bottom:-30%;left:50%;transform:translateX(-50%);
+  width:140%;height:70%;
+  border:2px solid var(--green);border-bottom:none;
+  border-radius:50% 50% 0 0;
+  opacity:.4;
+}
+.base{
+  position:absolute;width:10px;height:10px;
+  background:var(--gold);border-radius:2px;
+  transform:rotate(45deg);
+}
+.base-home{bottom:-5px;left:calc(50% - 5px)}
+.base-1st{right:-5px;top:calc(50% - 5px)}
+.base-2nd{top:-5px;left:calc(50% - 5px)}
+.base-3rd{left:-5px;top:calc(50% - 5px)}
+
+/* ===== PAGE 7: AGRADECIMENTOS ===== */
+.pg-thanks{
+  background:linear-gradient(170deg,var(--cream) 0%,var(--coral-light) 100%);
+  justify-content:center;
+}
+.pg-thanks .page-inner{gap:1rem;align-items:center;text-align:center}
+.pg-thanks .page-title{color:var(--coral)}
+
+.thanks-text{
+  font-size:clamp(.88rem,2.5vw,1rem);line-height:1.65;
+  color:var(--slate);max-width:440px;
+}
+
+.sponsors-area{
+  width:100%;margin-top:.5rem;
+}
+.sponsors-label{
+  font-family:'Teko',sans-serif;font-weight:400;
+  font-size:.75rem;letter-spacing:.2em;text-transform:uppercase;
+  color:var(--soft);margin-bottom:.5rem;
+}
+.sponsors-grid{
+  display:grid;grid-template-columns:repeat(3,1fr);gap:.5rem;
+}
+.sponsor-box{
+  aspect-ratio:3/2;background:#fff;border-radius:6px;
+  border:1px dashed rgba(0,0,0,.1);
+  display:flex;align-items:center;justify-content:center;
+  font-size:.65rem;color:var(--soft);font-weight:600;
+}
+
+/* ===== PAGE 8: CONTRACAPA ===== */
+.pg-back{
+  background:linear-gradient(160deg,var(--navy) 0%,var(--navy-mid) 50%,var(--navy-light) 100%);
+  color:#fff;justify-content:center;text-align:center;
+}
+.pg-back .page-inner{align-items:center;gap:1rem}
+
+.back-softball{
+  width:clamp(60px,16vw,90px);height:clamp(60px,16vw,90px);
+  opacity:.6;
+}
+
+.back-team{
+  font-family:'Teko',sans-serif;font-weight:700;
+  font-size:clamp(3rem,10vw,5rem);letter-spacing:.15em;
+  color:#fff;line-height:1;
+}
+
+.back-tagline{
+  font-family:'Teko',sans-serif;font-weight:300;
+  font-size:clamp(1.2rem,3.5vw,1.8rem);
+  color:var(--gold);letter-spacing:.1em;
+}
+
+.back-club{
+  font-size:.8rem;font-weight:600;color:var(--soft);
+  margin-top:.5rem;
+}
+
+.back-social{
+  margin-top:.8rem;font-size:.75rem;color:rgba(255,255,255,.4);
+  letter-spacing:.05em;
+}
+.back-social a{color:var(--gold);text-decoration:none}
+.back-social a:hover{text-decoration:underline}
+
+.back-founded{
+  margin-top:1.5rem;font-family:'Teko',sans-serif;font-weight:300;
+  font-size:.7rem;letter-spacing:.2em;text-transform:uppercase;
+  color:rgba(255,255,255,.2);
+}
+
+/* ===== ENTRANCE ANIMATIONS ===== */
+.page.active .anim-up{
+  animation:animUp .55s ease both;
+}
+.page.active .anim-up-d1{animation:animUp .55s ease .08s both}
+.page.active .anim-up-d2{animation:animUp .55s ease .16s both}
+.page.active .anim-up-d3{animation:animUp .55s ease .24s both}
+.page.active .anim-up-d4{animation:animUp .55s ease .32s both}
+
+@keyframes animUp{
+  from{opacity:0;transform:translateY(16px)}
+  to{opacity:1;transform:translateY(0)}
+}
+
+@media(prefers-reduced-motion:reduce){
+  .page.active .anim-up,
+  .page.active .anim-up-d1,
+  .page.active .anim-up-d2,
+  .page.active .anim-up-d3,
+  .page.active .anim-up-d4{animation:none;opacity:1}
+}
+</style>
+
+<!-- ===== SVG DEFINITIONS ===== -->
+<svg xmlns="http://www.w3.org/2000/svg" style="position:absolute;width:0;height:0;overflow:hidden">
+  <defs>
+    <symbol id="softball" viewBox="0 0 100 100">
+      <circle cx="50" cy="50" r="47" fill="#edb830"/>
+      <circle cx="50" cy="50" r="47" fill="none" stroke="#d94f30" stroke-width="1.5"/>
+      <path d="M 32 8 C 10 32, 12 68, 32 92" fill="none" stroke="#d94f30" stroke-width="2.5" stroke-linecap="round"/>
+      <path d="M 68 8 C 90 32, 88 68, 68 92" fill="none" stroke="#d94f30" stroke-width="2.5" stroke-linecap="round"/>
+      <g stroke="#d94f30" stroke-width="1.3" stroke-linecap="round">
+        <line x1="28" y1="20" x2="35" y2="23"/><line x1="23" y1="30" x2="30" y2="31"/>
+        <line x1="19" y1="40" x2="26" y2="39"/><line x1="18" y1="50" x2="25" y2="50"/>
+        <line x1="19" y1="60" x2="26" y2="61"/><line x1="23" y1="70" x2="30" y2="69"/>
+        <line x1="28" y1="80" x2="35" y2="77"/>
+        <line x1="72" y1="20" x2="65" y2="23"/><line x1="77" y1="30" x2="70" y2="31"/>
+        <line x1="81" y1="40" x2="74" y2="39"/><line x1="82" y1="50" x2="75" y2="50"/>
+        <line x1="81" y1="60" x2="74" y2="61"/><line x1="77" y1="70" x2="70" y2="69"/>
+        <line x1="72" y1="80" x2="65" y2="77"/>
+      </g>
+    </symbol>
+    <symbol id="arrow-left" viewBox="0 0 24 24">
+      <path d="M15 18l-6-6 6-6" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+    </symbol>
+    <symbol id="arrow-right" viewBox="0 0 24 24">
+      <path d="M9 18l6-6-6-6" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+    </symbol>
+  </defs>
+</svg>
+
+<!-- ===== MAGAZINE ===== -->
+<div class="magazine" id="magazine">
+
+  <!-- PAGE 1: CAPA -->
+  <section class="page pg-cover active" data-page="0">
+    <div class="cover-pattern"></div>
+    <div class="cover-year-bg">2026</div>
+    <div class="page-inner">
+      <div class="cover-federation anim-up">Campeonato Paulista</div>
+      <h1 class="cover-main-title anim-up-d1">SOFTBALL<br>SUB 11</h1>
+      <div class="cover-sport anim-up-d2">Feminino</div>
+      <div class="cover-softball-wrap anim-up-d3">
+        <svg aria-hidden="true"><use href="#softball"/></svg>
+      </div>
+      <div class="cover-team anim-up-d3">COOPER</div>
+      <div class="cover-date anim-up-d4">Agosto 2026 &middot; S&atilde;o Paulo, SP</div>
+    </div>
+  </section>
+
+  <!-- PAGE 2: BOAS-VINDAS -->
+  <section class="page pg-welcome" data-page="1">
+    <div class="page-inner">
+      <div class="page-eyebrow dark anim-up">Boas-vindas</div>
+      <h2 class="page-title anim-up-d1">&Eacute; hora de<br>jogar!</h2>
+      <div class="welcome-text anim-up-d2">
+        <p>&Eacute; com imensa alegria que damos as boas-vindas a todas as fam&iacute;lias, atletas e torcedores para o Campeonato Paulista de Softball Feminino Sub 11!</p>
+        <p>Nossas pequenas guerreiras do Cooper se prepararam com muita dedica&ccedil;&atilde;o e amor pelo esporte. Cada treino, cada jogada ensaiada, cada momento de supera&ccedil;&atilde;o nos trouxe at&eacute; aqui.</p>
+        <p>Hoje &eacute; dia de brilhar em campo &mdash; e mostrar que o verdadeiro esp&iacute;rito esportivo vai muito al&eacute;m do placar.</p>
+      </div>
+      <div class="welcome-quote anim-up-d3">
+        <span class="qm">&ldquo;</span>
+        O importante n&atilde;o &eacute; apenas vencer, mas dar o melhor de si em cada jogada.
+      </div>
+    </div>
+  </section>
+
+  <!-- PAGE 3: O CAMPEONATO -->
+  <section class="page pg-tournament" data-page="2">
+    <div class="page-inner">
+      <div class="page-eyebrow dark anim-up">O Campeonato</div>
+      <h2 class="page-title anim-up-d1">Campeonato<br>Paulista Sub 11</h2>
+      <div class="info-grid anim-up-d2">
+        <div class="info-card">
+          <div class="info-label">Data</div>
+          <div class="info-value">Agosto 2026</div>
+        </div>
+        <div class="info-card">
+          <div class="info-label">Local</div>
+          <div class="info-value">S&atilde;o Paulo, SP</div>
+        </div>
+        <div class="info-card">
+          <div class="info-label">Categoria</div>
+          <div class="info-value">Feminino Sub 11</div>
+        </div>
+        <div class="info-card">
+          <div class="info-label">Organiza&ccedil;&atilde;o</div>
+          <div class="info-value">FPBS</div>
+        </div>
+      </div>
+      <div class="section-sub anim-up-d3">Times Participantes</div>
+      <div class="teams-chips anim-up-d3">
+        <span class="team-chip highlight">Cooper</span>
+        <span class="team-chip">Time 2</span>
+        <span class="team-chip">Time 3</span>
+        <span class="team-chip">Time 4</span>
+        <span class="team-chip">Time 5</span>
+        <span class="team-chip">Time 6</span>
+      </div>
+      <div class="photo-placeholder anim-up-d4">Foto do Local</div>
+    </div>
+  </section>
+
+  <!-- PAGE 4: NOSSO TIME -->
+  <section class="page pg-team" data-page="3">
+    <div class="page-inner">
+      <div class="page-eyebrow anim-up" style="color:var(--coral)">Nosso Time</div>
+      <h2 class="page-title anim-up-d1">Cooper</h2>
+      <div class="photo-placeholder anim-up-d2" style="aspect-ratio:16/10">Foto do Time</div>
+      <div class="roster-grid anim-up-d3">
+        <div class="player-card"><span class="player-num">#1</span><span class="player-name">Jogadora 1</span></div>
+        <div class="player-card"><span class="player-num">#2</span><span class="player-name">Jogadora 2</span></div>
+        <div class="player-card"><span class="player-num">#3</span><span class="player-name">Jogadora 3</span></div>
+        <div class="player-card"><span class="player-num">#4</span><span class="player-name">Jogadora 4</span></div>
+        <div class="player-card"><span class="player-num">#5</span><span class="player-name">Jogadora 5</span></div>
+        <div class="player-card"><span class="player-num">#6</span><span class="player-name">Jogadora 6</span></div>
+        <div class="player-card"><span class="player-num">#7</span><span class="player-name">Jogadora 7</span></div>
+        <div class="player-card"><span class="player-num">#8</span><span class="player-name">Jogadora 8</span></div>
+        <div class="player-card"><span class="player-num">#9</span><span class="player-name">Jogadora 9</span></div>
+        <div class="player-card"><span class="player-num">#10</span><span class="player-name">Jogadora 10</span></div>
+        <div class="player-card"><span class="player-num">#11</span><span class="player-name">Jogadora 11</span></div>
+        <div class="player-card"><span class="player-num">#12</span><span class="player-name">Jogadora 12</span></div>
+      </div>
+      <div class="staff-row anim-up-d4">
+        <div class="staff-card">
+          <div class="staff-label">T&eacute;cnico(a)</div>
+          <div class="staff-name">Nome do T&eacute;cnico</div>
+        </div>
+        <div class="staff-card">
+          <div class="staff-label">Assistente</div>
+          <div class="staff-name">Nome do Assistente</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- PAGE 5: TABELA DE JOGOS -->
+  <section class="page pg-schedule" data-page="4">
+    <div class="page-inner">
+      <div class="page-eyebrow dark anim-up">Tabela de Jogos</div>
+      <h2 class="page-title anim-up-d1">Nossos<br>Jogos</h2>
+      <div class="games-list anim-up-d2">
+        <div class="game-card">
+          <div class="game-round">Jogo 1</div>
+          <div class="game-teams">
+            <span class="game-team cooper">Cooper</span>
+            <span class="game-vs">vs</span>
+            <span class="game-team">Advers&aacute;rio 1</span>
+          </div>
+          <div class="game-time">08:30<small>Hor&aacute;rio</small></div>
+        </div>
+        <div class="game-card">
+          <div class="game-round">Jogo 2</div>
+          <div class="game-teams">
+            <span class="game-team cooper">Cooper</span>
+            <span class="game-vs">vs</span>
+            <span class="game-team">Advers&aacute;rio 2</span>
+          </div>
+          <div class="game-time">10:00<small>Hor&aacute;rio</small></div>
+        </div>
+        <div class="game-card">
+          <div class="game-round">Jogo 3</div>
+          <div class="game-teams">
+            <span class="game-team cooper">Cooper</span>
+            <span class="game-vs">vs</span>
+            <span class="game-team">Advers&aacute;rio 3</span>
+          </div>
+          <div class="game-time">13:30<small>Hor&aacute;rio</small></div>
+        </div>
+        <div class="game-card">
+          <div class="game-round">Jogo 4</div>
+          <div class="game-teams">
+            <span class="game-team cooper">Cooper</span>
+            <span class="game-vs">vs</span>
+            <span class="game-team">Advers&aacute;rio 4</span>
+          </div>
+          <div class="game-time">15:00<small>Hor&aacute;rio</small></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- PAGE 6: CONHEÇA O SOFTBALL -->
+  <section class="page pg-softball" data-page="5">
+    <div class="page-inner">
+      <div class="page-eyebrow dark anim-up">Saiba Mais</div>
+      <h2 class="page-title anim-up-d1">Conhe&ccedil;a o<br>Softball</h2>
+      <div class="facts-list anim-up-d2">
+        <div class="fact-item">
+          <div class="fact-icon gold">S</div>
+          <div class="fact-text">
+            <strong>O que &eacute; Softball?</strong>
+            <p>Esporte derivado do beisebol, jogado com bola maior e campo menor. R&aacute;pido, emocionante e perfeito para todas as idades!</p>
+          </div>
+        </div>
+        <div class="fact-item">
+          <div class="fact-icon green">B</div>
+          <div class="fact-text">
+            <strong>A Bola</strong>
+            <p>A bola de softball tem 30,5 cm de circunfer&ecirc;ncia &mdash; maior que a de beisebol &mdash; e &eacute; amarela para melhor visibilidade.</p>
+          </div>
+        </div>
+        <div class="fact-item">
+          <div class="fact-icon coral">P</div>
+          <div class="fact-text">
+            <strong>Arremesso</strong>
+            <p>No softball o arremesso &eacute; feito por baixo (windmill), diferente do beisebol que &eacute; por cima.</p>
+          </div>
+        </div>
+        <div class="fact-item">
+          <div class="fact-icon gold">7</div>
+          <div class="fact-text">
+            <strong>Innings</strong>
+            <p>Cada partida tem 7 innings (entradas). Os times se alternam entre ataque e defesa a cada entrada.</p>
+          </div>
+        </div>
+        <div class="fact-item">
+          <div class="fact-icon green">9</div>
+          <div class="fact-text">
+            <strong>Jogadoras</strong>
+            <p>Cada time tem 9 jogadoras em campo na defesa, distribu&iacute;das entre infield e outfield.</p>
+          </div>
+        </div>
+      </div>
+      <div class="field-diagram anim-up-d3">
+        <div class="field-diamond">
+          <div class="base base-home"></div>
+          <div class="base base-1st"></div>
+          <div class="base base-2nd"></div>
+          <div class="base base-3rd"></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- PAGE 7: AGRADECIMENTOS -->
+  <section class="page pg-thanks" data-page="6">
+    <div class="page-inner">
+      <div class="page-eyebrow anim-up" style="color:var(--coral)">Agradecimentos</div>
+      <h2 class="page-title anim-up-d1">Obrigado!</h2>
+      <div class="thanks-text anim-up-d2">
+        <p>Agradecemos a todas as fam&iacute;lias que apoiam nossas atletas com amor e dedica&ccedil;&atilde;o. Aos t&eacute;cnicos e volunt&aacute;rios que doam seu tempo para o desenvolvimento do softball. E ao Cooper Clube por ser a nossa casa.</p>
+        <p>Um agradecimento especial a todos os patrocinadores e apoiadores que tornam este campeonato poss&iacute;vel.</p>
+      </div>
+      <div class="sponsors-area anim-up-d3">
+        <div class="sponsors-label">Apoiadores</div>
+        <div class="sponsors-grid">
+          <div class="sponsor-box">Logo 1</div>
+          <div class="sponsor-box">Logo 2</div>
+          <div class="sponsor-box">Logo 3</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- PAGE 8: CONTRACAPA -->
+  <section class="page pg-back" data-page="7">
+    <div class="cover-pattern"></div>
+    <div class="page-inner">
+      <svg class="back-softball anim-up" aria-hidden="true"><use href="#softball"/></svg>
+      <div class="back-team anim-up-d1">COOPER</div>
+      <div class="back-tagline anim-up-d2">Vamos com tudo!</div>
+      <div class="back-club anim-up-d3">Coopercotia Atl&eacute;tico Clube</div>
+      <div class="back-social anim-up-d3">
+        <a href="https://www.instagram.com/cooperclube/" target="_blank" rel="noopener">@cooperclube</a>
+      </div>
+      <div class="back-founded anim-up-d4">Desde 1942</div>
+    </div>
+  </section>
+
+</div>
+
+<!-- CLICK ZONES -->
+<div class="click-zone click-left" id="clickLeft" role="button" aria-label="P&aacute;gina anterior" tabindex="-1"></div>
+<div class="click-zone click-right" id="clickRight" role="button" aria-label="Pr&oacute;xima p&aacute;gina" tabindex="-1"></div>
+
+<!-- SWIPE HINT -->
+<div class="swipe-hint" id="swipeHint">
+  <span>Deslize para navegar</span>
+  <svg viewBox="0 0 24 24"><use href="#arrow-right"/></svg>
+</div>
+
+<!-- PAGE NUMBER -->
+<div class="page-num" id="pageNum">1 / 8</div>
+
+<!-- NAVIGATION BAR -->
+<nav class="nav-bar" id="navBar">
+  <button class="nav-btn" id="prevBtn" aria-label="P&aacute;gina anterior" disabled>
+    <svg width="20" height="20"><use href="#arrow-left"/></svg>
+  </button>
+  <div class="nav-dots" id="navDots"></div>
+  <button class="nav-btn" id="nextBtn" aria-label="Pr&oacute;xima p&aacute;gina">
+    <svg width="20" height="20"><use href="#arrow-right"/></svg>
+  </button>
+</nav>
+
+<script>
+(function(){
+  const pages = document.querySelectorAll('.page');
+  const totalPages = pages.length;
+  let current = 0;
+  let isAnimating = false;
+
+  const prevBtn = document.getElementById('prevBtn');
+  const nextBtn = document.getElementById('nextBtn');
+  const dotsContainer = document.getElementById('navDots');
+  const pageNum = document.getElementById('pageNum');
+  const clickLeft = document.getElementById('clickLeft');
+  const clickRight = document.getElementById('clickRight');
+
+  // Build dots
+  for (let i = 0; i < totalPages; i++) {
+    const dot = document.createElement('button');
+    dot.className = 'dot' + (i === 0 ? ' active' : '');
+    dot.setAttribute('aria-label', 'Página ' + (i + 1));
+    dot.addEventListener('click', function() { goTo(i); });
+    dotsContainer.appendChild(dot);
+  }
+
+  function updatePageNumColor() {
+    const dark = [0, 7]; // cover + back cover have white bg needs
+    pageNum.classList.toggle('dark-text', !dark.includes(current));
+  }
+
+  function goTo(index) {
+    if (index === current || index < 0 || index >= totalPages || isAnimating) return;
+    isAnimating = true;
+
+    const direction = index > current ? 1 : -1;
+    const oldPage = pages[current];
+    const newPage = pages[index];
+
+    // Reset animation classes on new page content
+    newPage.querySelectorAll('[class*="anim-"]').forEach(function(el) {
+      el.style.animation = 'none';
+      el.offsetHeight; // reflow
+      el.style.animation = '';
+    });
+
+    oldPage.classList.remove('active');
+    oldPage.classList.add(direction > 0 ? 'exit-left' : '');
+    if (direction < 0) {
+      oldPage.style.transform = 'translateX(60px)';
+      oldPage.style.opacity = '0';
+    }
+
+    newPage.style.transform = direction > 0 ? 'translateX(60px)' : 'translateX(-60px)';
+    newPage.style.opacity = '0';
+    newPage.offsetHeight; // reflow
+
+    newPage.classList.add('active');
+    newPage.style.transform = '';
+    newPage.style.opacity = '';
+
+    current = index;
+
+    // Update controls
+    prevBtn.disabled = current === 0;
+    nextBtn.disabled = current === totalPages - 1;
+
+    const dots = dotsContainer.querySelectorAll('.dot');
+    dots.forEach(function(d, i) {
+      d.classList.toggle('active', i === current);
+    });
+
+    pageNum.textContent = (current + 1) + ' / ' + totalPages;
+    updatePageNumColor();
+
+    setTimeout(function() {
+      oldPage.classList.remove('exit-left');
+      oldPage.style.transform = '';
+      oldPage.style.opacity = '';
+      isAnimating = false;
+    }, 480);
+  }
+
+  function nextPage() { goTo(current + 1); }
+  function prevPage() { goTo(current - 1); }
+
+  prevBtn.addEventListener('click', prevPage);
+  nextBtn.addEventListener('click', nextPage);
+  clickLeft.addEventListener('click', prevPage);
+  clickRight.addEventListener('click', nextPage);
+
+  // Keyboard
+  document.addEventListener('keydown', function(e) {
+    if (e.key === 'ArrowRight' || e.key === ' ') { e.preventDefault(); nextPage(); }
+    if (e.key === 'ArrowLeft') { e.preventDefault(); prevPage(); }
+  });
+
+  // Touch swipe
+  let touchStartX = 0, touchStartY = 0;
+  document.addEventListener('touchstart', function(e) {
+    touchStartX = e.changedTouches[0].screenX;
+    touchStartY = e.changedTouches[0].screenY;
+  }, { passive: true });
+
+  document.addEventListener('touchend', function(e) {
+    const dx = e.changedTouches[0].screenX - touchStartX;
+    const dy = e.changedTouches[0].screenY - touchStartY;
+    if (Math.abs(dx) > 50 && Math.abs(dx) > Math.abs(dy) * 1.5) {
+      if (dx < 0) nextPage();
+      else prevPage();
+    }
+  }, { passive: true });
+
+  updatePageNumColor();
+})();
+</script>
